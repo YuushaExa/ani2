@@ -1,0 +1,51 @@
+name: Fetch MyAnimeList Top Anime
+
+on:
+  workflow_dispatch:  # Allows manual triggering
+  schedule:
+    - cron: '0 0 * * 0'  # Runs weekly on Sundays at 00:00 UTC
+
+jobs:
+  fetch-anime:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Create results directory
+        run: mkdir -p results
+
+      - name: Fetch top 200 anime
+        env:
+          CLIENT_ID: ${{ secrets.MAL_CLIENT_ID }}
+        run: |
+          # Fetch first 100 anime
+          curl -s "https://api.myanimelist.net/v2/anime/ranking?ranking_type=all&limit=100" \
+            -H "X-MAL-CLIENT-ID: $CLIENT_ID" \
+            -o temp1.json
+
+          # Fetch next 100 anime (offset 100)
+          curl -s "https://api.myanimelist.net/v2/anime/ranking?ranking_type=all&limit=100&offset=100" \
+            -H "X-MAL-CLIENT-ID: $CLIENT_ID" \
+            -o temp2.json
+
+          # Combine results
+          jq -s '{
+            data: (.[0].data + .[1].data),
+            paging: .[1].paging
+          }' temp1.json temp2.json > results/top200.json
+
+          # Cleanup
+          rm temp1.json temp2.json
+
+      - name: Commit results
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add results/
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update top 200 anime list" && git push)
