@@ -1,51 +1,38 @@
-name: Fetch MyAnimeList Top Anime
+name: Fetch 100 Oldest Anime by ID (via Jikan Search)
 
 on:
-  workflow_dispatch:  # Allows manual triggering
+  workflow_dispatch:
   schedule:
-    - cron: '0 0 * * 0'  # Runs weekly on Sundays at 00:00 UTC
+    - cron: '0 4 * * 0'  # Weekly at 4 AM UTC
 
 jobs:
-  fetch-anime:
+  fetch-oldest-anime:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
       - name: Create results directory
         run: mkdir -p results
 
-      - name: Fetch top 200 anime
-        env:
-          CLIENT_ID: ${{ secrets.MAL_CLIENT_ID }}
+      - name: Fetch 100 oldest anime (by ID)
         run: |
-          # Fetch first 100 anime
-          curl -s "https://api.myanimelist.net/v2/anime/ranking?ranking_type=all&limit=100" \
-            -H "X-MAL-CLIENT-ID: $CLIENT_ID" \
-            -o temp1.json
+          curl -s "https://api.jikan.moe/v4/anime?order_by=id&sort=asc&limit=100" \
+            -o results/by_id_oldest_100.json
 
-          # Fetch next 100 anime (offset 100)
-          curl -s "https://api.myanimelist.net/v2/anime/ranking?ranking_type=all&limit=100&offset=100" \
-            -H "X-MAL-CLIENT-ID: $CLIENT_ID" \
-            -o temp2.json
+          # Optional: extract just the data array for cleaner output
+          jq '.data' results/by_id_oldest_100.json > temp.json && mv temp.json results/by_id_oldest_100.json
 
-          # Combine results
-          jq -s '{
-            data: (.[0].data + .[1].data),
-            paging: .[1].paging
-          }' temp1.json temp2.json > results/top200.json
-
-          # Cleanup
-          rm temp1.json temp2.json
+          echo "✅ Fetched $(jq 'length' results/by_id_oldest_100.json) anime"
 
       - name: Commit results
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add results/
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Update top 200 anime list" && git push)
+          if ! git diff --quiet --cached; then
+            git commit -m "Update 100 oldest anime (by ID) via Jikan"
+            git push
+          else
+            echo "No changes to commit"
+          fi
