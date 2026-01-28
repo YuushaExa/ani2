@@ -2,8 +2,6 @@ name: Fetch 100 Oldest Anime by ID (via Jikan Search)
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 4 * * 0'  # Weekly at 4 AM UTC
 
 jobs:
   fetch-oldest-anime:
@@ -17,7 +15,7 @@ jobs:
 
       - name: Fetch 100 oldest anime (by ID)
         run: |
-          curl -s "https://api.jikan.moe/v4/anime?order_by=id&sort=asc&limit=100" \
+          curl -s "https://api.jikan.moe/v4/anime?order_by=mal_id&sort=asc&limit=100" \
             -o results/by_id_oldest_100.json
 
           # Optional: extract just the data array for cleaner output
